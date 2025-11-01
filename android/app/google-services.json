@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "570383463237",
+    "project_id": "health-symptom-checker-2073",
+    "storage_bucket": "health-symptom-checker-2073.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:570383463237:android:aa7ccba44ca0c0ac3b042c",
+        "android_client_info": {
+          "package_name": "com.example.health_symptom_checker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD7wC0W0krlbS6qsUIEDCP8hiFmlnVOAZg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
