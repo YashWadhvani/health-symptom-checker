@@ -83,4 +83,5 @@ class DefaultFirebaseOptions {
     authDomain: 'health-symptom-checker-2073.firebaseapp.com',
     storageBucket: 'health-symptom-checker-2073.firebasestorage.app',
   );
+
 }
