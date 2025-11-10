@@ -1,67 +1,3 @@
-// import 'dart:convert';
-// import 'package:http/http.dart' as http;
-
-// class Condition {
-//   final String name;
-//   final double probability;
-//   final String severity;
-
-//   Condition({
-//     required this.name,
-//     required this.probability,
-//     required this.severity,
-//   });
-// }
-
-// class SymptomApiService {
-//   final String appId = "YOUR_APP_ID";
-//   final String appKey = "YOUR_APP_KEY";
-//   final String baseUrl = "https://api.infermedica.com/v3";
-
-//   Future<List<Condition>> getPossibleConditions(String symptom) async {
-//     final url = Uri.parse("$baseUrl/diagnosis");
-//     final headers = {
-//       'App-Id': appId,
-//       'App-Key': appKey,
-//       'Content-Type': 'application/json',
-//     };
-
-//     final body = jsonEncode({
-//       "sex": "female",
-//       "age": 21,
-//       "evidence": [
-//         {"id": symptom, "choice_id": "present"},
-//       ],
-//     });
-
-//     final response = await http.post(url, headers: headers, body: body);
-
-//     if (response.statusCode == 200) {
-//       final data = jsonDecode(response.body);
-//       final List<Condition> conditions = [];
-
-//       for (var condition in data["conditions"]) {
-//         final prob = (condition["probability"] as num).toDouble();
-//         String severity = prob > 0.7
-//             ? "High"
-//             : prob > 0.4
-//             ? "Medium"
-//             : "Low";
-//         conditions.add(
-//           Condition(
-//             name: condition['name'],
-//             probability: prob,
-//             severity: severity,
-//           ),
-//         );
-//       }
-//       return conditions;
-//     } else {
-//       throw Exception("Failed to fetch conditions");
-//     }
-//   }
-// }
-
 import '../models/symptom_model.dart';
 
 /// Service for analyzing symptoms and getting possible conditions
@@ -123,6 +59,18 @@ class SymptomApiService {
             'Complete full course of medication if prescribed',
           ],
         ),
+        Condition(
+          name: 'COVID-19',
+          severity: 'Medium',
+          probability: 0.42,
+          description: 'Coronavirus infection with fever as common symptom',
+          recommendations: [
+            'Get tested for COVID-19',
+            'Self-isolate until test results',
+            'Monitor oxygen levels if available',
+            'Seek care if breathing difficulty develops',
+          ],
+        ),
       ];
     }
     // Headache-related symptoms
@@ -166,6 +114,18 @@ class SymptomApiService {
             'Avoid excessive caffeine and alcohol',
           ],
         ),
+        Condition(
+          name: 'Sinus Headache',
+          severity: 'Low',
+          probability: 0.38,
+          description: 'Headache from sinus pressure or infection',
+          recommendations: [
+            'Use saline nasal spray',
+            'Apply warm compress to face',
+            'Steam inhalation',
+            'Decongestants may help',
+          ],
+        ),
       ];
     }
     // Cough-related symptoms
@@ -207,12 +167,26 @@ class SymptomApiService {
             'Use air purifier indoors',
           ],
         ),
+        Condition(
+          name: 'Asthma',
+          severity: 'Medium',
+          probability: 0.35,
+          description: 'Chronic condition causing airway inflammation',
+          recommendations: [
+            'Use prescribed inhaler',
+            'Avoid triggers (smoke, cold air, exercise)',
+            'Keep rescue inhaler accessible',
+            'Develop action plan with doctor',
+          ],
+        ),
       ];
     }
     // Stomach/Digestive symptoms
     else if (symptomLower.contains('stomach') ||
         symptomLower.contains('nausea') ||
-        symptomLower.contains('vomit')) {
+        symptomLower.contains('vomit') ||
+        symptomLower.contains('diarrhea') ||
+        symptomLower.contains('abdominal')) {
       return [
         Condition(
           name: 'Gastroenteritis',
@@ -248,6 +222,19 @@ class SymptomApiService {
             'Eat smaller meals',
             'Don\'t lie down immediately after eating',
             'Elevate head while sleeping',
+          ],
+        ),
+        Condition(
+          name: 'Irritable Bowel Syndrome',
+          severity: 'Medium',
+          probability: 0.33,
+          description:
+              'Chronic digestive disorder with cramping and bowel changes',
+          recommendations: [
+            'Keep food diary to identify triggers',
+            'Manage stress levels',
+            'Regular exercise',
+            'Consider low-FODMAP diet',
           ],
         ),
       ];
@@ -293,12 +280,25 @@ class SymptomApiService {
             '- Dizziness or sweating',
           ],
         ),
+        Condition(
+          name: 'Anxiety/Panic Attack',
+          severity: 'Low',
+          probability: 0.30,
+          description: 'Stress-induced chest tightness or pain',
+          recommendations: [
+            'Practice deep breathing',
+            'Remove yourself from stressful situation',
+            'Seek mental health support',
+            'Rule out cardiac causes first',
+          ],
+        ),
       ];
     }
     // Fatigue/Tiredness
     else if (symptomLower.contains('tired') ||
         symptomLower.contains('fatigue') ||
-        symptomLower.contains('weak')) {
+        symptomLower.contains('weak') ||
+        symptomLower.contains('exhausted')) {
       return [
         Condition(
           name: 'Sleep Deprivation',
@@ -334,6 +334,18 @@ class SymptomApiService {
             'Rule out underlying conditions',
             'Paced activity management',
             'Stress reduction techniques',
+          ],
+        ),
+        Condition(
+          name: 'Thyroid Disorder',
+          severity: 'Medium',
+          probability: 0.28,
+          description: 'Underactive thyroid causing fatigue and sluggishness',
+          recommendations: [
+            'Get thyroid function tests',
+            'Thyroid hormone replacement if needed',
+            'Regular monitoring',
+            'Maintain healthy diet',
           ],
         ),
       ];
@@ -375,6 +387,399 @@ class SymptomApiService {
             'Pain relievers as needed',
             'Warm compresses on neck',
             'See doctor if severe or persistent',
+          ],
+        ),
+        Condition(
+          name: 'Laryngitis',
+          severity: 'Low',
+          probability: 0.32,
+          description: 'Voice box inflammation causing hoarseness',
+          recommendations: [
+            'Rest your voice completely',
+            'Avoid whispering (strains vocal cords)',
+            'Use humidifier',
+            'Stay hydrated',
+          ],
+        ),
+      ];
+    }
+    // Dizziness/Vertigo
+    else if (symptomLower.contains('dizzy') ||
+        symptomLower.contains('vertigo') ||
+        symptomLower.contains('lightheaded')) {
+      return [
+        Condition(
+          name: 'Benign Positional Vertigo',
+          severity: 'Low',
+          probability: 0.62,
+          description: 'Inner ear issue causing spinning sensation',
+          recommendations: [
+            'Avoid sudden head movements',
+            'Epley maneuver (ask doctor)',
+            'Stay hydrated',
+            'Sit down when dizzy',
+          ],
+        ),
+        Condition(
+          name: 'Dehydration',
+          severity: 'Low',
+          probability: 0.55,
+          description: 'Fluid loss causing dizziness',
+          recommendations: [
+            'Drink water slowly',
+            'Electrolyte drinks',
+            'Avoid caffeine and alcohol',
+            'Rest in cool environment',
+          ],
+        ),
+        Condition(
+          name: 'Low Blood Pressure',
+          severity: 'Medium',
+          probability: 0.38,
+          description: 'Hypotension causing lightheadedness',
+          recommendations: [
+            'Stand up slowly from sitting/lying',
+            'Increase salt intake (if approved by doctor)',
+            'Wear compression stockings',
+            'Monitor blood pressure regularly',
+          ],
+        ),
+        Condition(
+          name: 'Inner Ear Infection',
+          severity: 'Medium',
+          probability: 0.35,
+          description: 'Infection affecting balance and causing dizziness',
+          recommendations: [
+            'See doctor for evaluation',
+            'May need antibiotics',
+            'Avoid driving until resolved',
+            'Balance exercises after recovery',
+          ],
+        ),
+      ];
+    }
+    // Back pain
+    else if (symptomLower.contains('back') && symptomLower.contains('pain')) {
+      return [
+        Condition(
+          name: 'Muscle Strain',
+          severity: 'Low',
+          probability: 0.72,
+          description: 'Overuse or injury causing back muscle pain',
+          recommendations: [
+            'Rest for first 24-48 hours',
+            'Apply ice, then heat after 48 hours',
+            'Over-the-counter pain relievers',
+            'Gentle stretching and movement',
+          ],
+        ),
+        Condition(
+          name: 'Poor Posture',
+          severity: 'Low',
+          probability: 0.58,
+          description: 'Chronic bad posture leading to back discomfort',
+          recommendations: [
+            'Ergonomic workspace setup',
+            'Core strengthening exercises',
+            'Take breaks from sitting',
+            'Consider physical therapy',
+          ],
+        ),
+        Condition(
+          name: 'Herniated Disc',
+          severity: 'Medium',
+          probability: 0.32,
+          description: 'Spinal disc pressing on nerves',
+          recommendations: [
+            'Physical therapy',
+            'Anti-inflammatory medication',
+            'Avoid heavy lifting',
+            'See specialist if pain radiates to legs',
+          ],
+        ),
+        Condition(
+          name: 'Sciatica',
+          severity: 'Medium',
+          probability: 0.28,
+          description: 'Nerve pain radiating down leg from back',
+          recommendations: [
+            'Physical therapy exercises',
+            'Heat and ice therapy',
+            'Avoid prolonged sitting',
+            'Medical evaluation if severe',
+          ],
+        ),
+      ];
+    }
+    // Joint pain
+    else if (symptomLower.contains('joint') ||
+        (symptomLower.contains('knee') && symptomLower.contains('pain')) ||
+        (symptomLower.contains('ankle') && symptomLower.contains('pain')) ||
+        (symptomLower.contains('elbow') && symptomLower.contains('pain'))) {
+      return [
+        Condition(
+          name: 'Osteoarthritis',
+          severity: 'Medium',
+          probability: 0.58,
+          description: 'Wear-and-tear arthritis causing joint pain',
+          recommendations: [
+            'Low-impact exercise (swimming, cycling)',
+            'Maintain healthy weight',
+            'Anti-inflammatory medication',
+            'Physical therapy',
+          ],
+        ),
+        Condition(
+          name: 'Sprain or Strain',
+          severity: 'Low',
+          probability: 0.52,
+          description: 'Ligament or muscle injury',
+          recommendations: [
+            'RICE: Rest, Ice, Compression, Elevation',
+            'Avoid weight-bearing if severe',
+            'Over-the-counter pain relief',
+            'See doctor if no improvement in 48 hours',
+          ],
+        ),
+        Condition(
+          name: 'Rheumatoid Arthritis',
+          severity: 'Medium',
+          probability: 0.35,
+          description: 'Autoimmune condition causing joint inflammation',
+          recommendations: [
+            'Rheumatologist consultation',
+            'Disease-modifying medications',
+            'Regular exercise',
+            'Joint protection techniques',
+          ],
+        ),
+        Condition(
+          name: 'Bursitis',
+          severity: 'Low',
+          probability: 0.30,
+          description: 'Inflammation of fluid-filled sacs around joints',
+          recommendations: [
+            'Rest affected joint',
+            'Ice application',
+            'Anti-inflammatory medication',
+            'Avoid repetitive movements',
+          ],
+        ),
+      ];
+    }
+    // Skin issues
+    else if (symptomLower.contains('rash') ||
+        symptomLower.contains('itch') ||
+        symptomLower.contains('skin')) {
+      return [
+        Condition(
+          name: 'Allergic Reaction',
+          severity: 'Low',
+          probability: 0.68,
+          description: 'Skin reaction to allergen',
+          recommendations: [
+            'Identify and avoid trigger',
+            'Antihistamine medication',
+            'Cool compress to affected area',
+            'Seek emergency care if breathing difficulty',
+          ],
+        ),
+        Condition(
+          name: 'Eczema',
+          severity: 'Low',
+          probability: 0.48,
+          description: 'Chronic skin condition causing dry, itchy patches',
+          recommendations: [
+            'Moisturize regularly',
+            'Avoid harsh soaps and detergents',
+            'Topical corticosteroids',
+            'Identify and avoid triggers',
+          ],
+        ),
+        Condition(
+          name: 'Contact Dermatitis',
+          severity: 'Low',
+          probability: 0.45,
+          description: 'Skin inflammation from contact with irritant',
+          recommendations: [
+            'Wash area with mild soap',
+            'Avoid the irritant',
+            'Hydrocortisone cream',
+            'Cool, wet compresses',
+          ],
+        ),
+        Condition(
+          name: 'Fungal Infection',
+          severity: 'Low',
+          probability: 0.32,
+          description: 'Skin infection caused by fungus',
+          recommendations: [
+            'Antifungal cream or powder',
+            'Keep area clean and dry',
+            'Avoid sharing personal items',
+            'See doctor if not improving',
+          ],
+        ),
+      ];
+    }
+    // Breathing issues
+    else if (symptomLower.contains('breathing') ||
+        symptomLower.contains('breath') ||
+        symptomLower.contains('shortness')) {
+      return [
+        Condition(
+          name: 'Asthma Attack',
+          severity: 'High',
+          probability: 0.55,
+          description: 'Airway constriction causing breathing difficulty',
+          recommendations: [
+            'Use rescue inhaler immediately',
+            'Sit upright',
+            'Stay calm and breathe slowly',
+            'Seek emergency care if no improvement',
+          ],
+        ),
+        Condition(
+          name: 'Anxiety/Panic Attack',
+          severity: 'Medium',
+          probability: 0.48,
+          description: 'Stress causing hyperventilation',
+          recommendations: [
+            'Practice slow, deep breathing',
+            'Focus on exhaling slowly',
+            'Remove from stressful situation',
+            'Seek mental health support',
+          ],
+        ),
+        Condition(
+          name: 'Pneumonia',
+          severity: 'High',
+          probability: 0.35,
+          description: 'Lung infection causing breathing difficulty',
+          recommendations: [
+            'See doctor immediately',
+            'May require antibiotics',
+            'Rest and hydration',
+            'Monitor oxygen levels',
+          ],
+        ),
+        Condition(
+          name: 'Pulmonary Embolism',
+          severity: 'High',
+          probability: 0.15,
+          description: 'Blood clot in lung - MEDICAL EMERGENCY',
+          recommendations: [
+            '⚠️ CALL EMERGENCY SERVICES IMMEDIATELY',
+            'Do not wait',
+            'Especially if sudden onset with chest pain',
+          ],
+        ),
+      ];
+    }
+    // Ear pain
+    else if (symptomLower.contains('ear') && symptomLower.contains('pain')) {
+      return [
+        Condition(
+          name: 'Ear Infection',
+          severity: 'Medium',
+          probability: 0.68,
+          description: 'Bacterial or viral infection of middle ear',
+          recommendations: [
+            'Warm compress on ear',
+            'Pain relievers',
+            'See doctor for possible antibiotics',
+            'Avoid getting water in ear',
+          ],
+        ),
+        Condition(
+          name: 'Earwax Buildup',
+          severity: 'Low',
+          probability: 0.52,
+          description: 'Excessive wax blocking ear canal',
+          recommendations: [
+            'Over-the-counter ear drops',
+            'Do NOT use cotton swabs',
+            'Professional removal if impacted',
+            'Soften with mineral oil',
+          ],
+        ),
+        Condition(
+          name: 'TMJ Disorder',
+          severity: 'Low',
+          probability: 0.35,
+          description: 'Jaw joint problem causing ear pain',
+          recommendations: [
+            'Avoid hard or chewy foods',
+            'Apply warm compress to jaw',
+            'Gentle jaw exercises',
+            'See dentist or specialist',
+          ],
+        ),
+        Condition(
+          name: 'Swimmers Ear',
+          severity: 'Low',
+          probability: 0.30,
+          description: 'Outer ear canal infection',
+          recommendations: [
+            'Keep ear dry',
+            'Antibiotic ear drops',
+            'Avoid swimming until healed',
+            'Do not insert anything in ear',
+          ],
+        ),
+      ];
+    }
+    // Insomnia/Sleep issues
+    else if (symptomLower.contains('sleep') ||
+        symptomLower.contains('insomnia') ||
+        symptomLower.contains('can\'t sleep')) {
+      return [
+        Condition(
+          name: 'Stress-Related Insomnia',
+          severity: 'Low',
+          probability: 0.72,
+          description: 'Difficulty sleeping due to stress or anxiety',
+          recommendations: [
+            'Establish consistent sleep schedule',
+            'Relaxation techniques before bed',
+            'Avoid screens 1 hour before sleep',
+            'Create calm sleep environment',
+          ],
+        ),
+        Condition(
+          name: 'Poor Sleep Hygiene',
+          severity: 'Low',
+          probability: 0.58,
+          description: 'Habits interfering with good sleep',
+          recommendations: [
+            'Keep bedroom cool and dark',
+            'Avoid caffeine after 2 PM',
+            'No exercise close to bedtime',
+            'Reserve bed for sleep only',
+          ],
+        ),
+        Condition(
+          name: 'Sleep Apnea',
+          severity: 'Medium',
+          probability: 0.32,
+          description: 'Breathing interruptions during sleep',
+          recommendations: [
+            'Sleep study recommended',
+            'Weight loss if overweight',
+            'Sleep on side, not back',
+            'CPAP machine if diagnosed',
+          ],
+        ),
+        Condition(
+          name: 'Circadian Rhythm Disorder',
+          severity: 'Low',
+          probability: 0.28,
+          description: 'Body clock misalignment',
+          recommendations: [
+            'Light therapy in morning',
+            'Consistent wake time',
+            'Avoid naps',
+            'Melatonin supplements (consult doctor)',
           ],
         ),
       ];
@@ -419,6 +824,18 @@ class SymptomApiService {
             'Consult doctor if no improvement in 7-10 days',
           ],
         ),
+        Condition(
+          name: 'Nutritional Deficiency',
+          severity: 'Low',
+          probability: 0.28,
+          description: 'Lacking essential vitamins or minerals',
+          recommendations: [
+            'Eat balanced, varied diet',
+            'Consider multivitamin',
+            'Blood tests to identify deficiencies',
+            'Address specific deficiencies with doctor',
+          ],
+        ),
       ];
     }
   }
@@ -450,6 +867,11 @@ class SymptomApiService {
       'sudden weakness',
       'confusion',
       'seizure',
+      'severe abdominal pain',
+      'coughing blood',
+      'sudden vision loss',
+      'stroke symptoms',
+      'allergic reaction with swelling',
     ];
 
     return urgentKeywords.any((keyword) => symptomLower.contains(keyword));

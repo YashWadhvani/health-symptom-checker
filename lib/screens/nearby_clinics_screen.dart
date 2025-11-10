@@ -120,9 +120,13 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
   /// Load clinics from Firestore
   Future<void> _loadClinicsFromFirestore() async {
     try {
+      debugPrint('Starting to load clinics from Firestore...');
       final QuerySnapshot snapshot = await FirebaseFirestore.instance
-          .collection('clinics')
+          .collection('all_clinics')
           .get();
+      debugPrint(
+        'Received snapshot from Firestore with ${snapshot.docs.length} documents',
+      );
 
       List<Map<String, dynamic>> loadedClinics = [];
 
@@ -176,7 +180,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
               ? (data['rating'] as num).toDouble()
               : 0.0,
           'open': data['open'] ?? false,
-          'phone': data['phone'] ?? '',
+          'phone': data['phone']?.toString() ?? '',
           'type': data['type'] ?? 'Clinic',
           'lat': lat, // nullable double
           'lng': lng, // nullable double
@@ -216,12 +220,17 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
         'Clinics loaded: ${loadedClinics.length}, missing coords: ${missing.length}',
       );
 
+      debugPrint(
+        'Processed clinics: ${loadedClinics.length} total, ${loadedClinics.where((c) => c['lat'] != null && c['lng'] != null).length} with valid coordinates',
+      );
       setState(() {
         _clinics = loadedClinics;
         _missingCoords = missing;
         _isLoading = false;
       });
-    } catch (e) {
+    } catch (e, stackTrace) {
+      debugPrint('Error loading clinics: $e');
+      debugPrint('Stack trace: $stackTrace');
       setState(() {
         _isLoading = false;
         _errorMessage = 'Error loading clinics: ${e.toString()}';
@@ -268,22 +277,28 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
 
     // Clean the phone number to ensure proper format
     String cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
-    final Uri launchUri = Uri(scheme: 'tel', path: cleanPhone);
+
+    // Preferred: use a simple tel: URI string to maximize platform compatibility
+    final String telString = 'tel:$cleanPhone';
+    final Uri launchUri = Uri.parse(telString);
 
     try {
+      // Some devices/emulators may not return true for canLaunchUrl for tel: URIs
+      // so attempt to launch directly and fall back to launchUrlString if needed.
       if (await canLaunchUrl(launchUri)) {
+        debugPrint('Launching dialer via canLaunchUrl: $telString');
         await launchUrl(launchUri, mode: LaunchMode.externalApplication);
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not open phone dialer')),
-          );
-        }
+        return;
       }
+
+      // Fallback: attempt to launch directly (sometimes canLaunchUrl returns false
+      // on emulators even though a dialer is available).
+      debugPrint('Attempting direct launch of dialer: $telString');
+      await launchUrl(launchUri, mode: LaunchMode.externalApplication);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error launching phone dialer')),
+          const SnackBar(content: Text('Could not open phone dialer')),
         );
       }
     }
@@ -506,7 +521,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     const SizedBox(width: 8),
                     Text(
                       // Use the human-friendly distance string we stored.
-                      clinic['distanceStr'] ?? 'N/A',
+                      (clinic['distanceStr'] as String?) ?? 'N/A',
                       style: TextStyle(
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w500,

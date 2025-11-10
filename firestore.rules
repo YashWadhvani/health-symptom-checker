@@ -1,0 +1,16 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow public read access to all_clinics collection
+    match /all_clinics/{clinicId} {
+      allow read: if true;  // Anyone can read clinic data
+      allow write: if false;  // No one can modify clinic data
+    }
+    
+    // Default rule - deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
