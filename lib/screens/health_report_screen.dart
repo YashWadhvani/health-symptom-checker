@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/symptom_api.dart';
+import '../models/symptom_model.dart';
 
 class HealthReportScreen extends StatefulWidget {
   final String symptom;
