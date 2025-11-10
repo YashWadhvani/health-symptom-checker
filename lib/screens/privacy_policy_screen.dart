@@ -89,10 +89,10 @@ class PrivacyPolicyScreen extends StatelessWidget {
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.teal.withOpacity(0.1),
+                decoration: BoxDecoration(
+                color: Colors.teal.withAlpha((0.1 * 255).round()),
                 borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: Colors.teal.withOpacity(0.3)),
+                border: Border.all(color: Colors.teal.withAlpha((0.3 * 255).round())),
               ),
               child: Column(
                 children: [
@@ -227,7 +227,7 @@ class PrivacyPolicyScreen extends StatelessWidget {
             // Footer Actions
             Card(
               elevation: 0,
-              color: Colors.teal.withOpacity(0.1),
+              color: Colors.teal.withAlpha((0.1 * 255).round()),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -315,9 +315,9 @@ class PrivacyPolicyScreen extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.teal.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+                            color: Colors.teal.withAlpha((0.1 * 255).round()),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                     child: Icon(icon, color: Colors.teal, size: 24),
                   ),
                   const SizedBox(width: 12),

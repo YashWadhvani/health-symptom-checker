@@ -25,17 +25,21 @@ class _HealthReportScreenState extends State<HealthReportScreen> {
   Future<void> _loadData() async {
     try {
       final results = await _apiService.getPossibleConditions(widget.symptom);
+      if (!mounted) return;
       setState(() {
         _conditions = results;
       });
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      if (mounted) {
+        // Only access ScaffoldMessenger.of(context) after async work and when mounted
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     } finally {
-      setState(() {
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _loading = false;
+        });
+      }
     }
   }
 
@@ -76,8 +80,9 @@ class _HealthReportScreenState extends State<HealthReportScreen> {
                       itemCount: _conditions.length,
                       itemBuilder: (context, index) {
                         final c = _conditions[index];
+                        final color = getColor(c.severity);
                         return Card(
-                          color: getColor(c.severity).withOpacity(0.3),
+                          color: color.withAlpha(77),
                           child: ListTile(
                             title: Text(c.name),
                             subtitle: Text(
@@ -85,7 +90,7 @@ class _HealthReportScreenState extends State<HealthReportScreen> {
                             ),
                             leading: Icon(
                               Icons.warning_amber_rounded,
-                              color: getColor(c.severity),
+                              color: color,
                             ),
                           ),
                         );

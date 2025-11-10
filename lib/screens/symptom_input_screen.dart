@@ -19,10 +19,21 @@ class _SymptomInputScreenState extends State<SymptomInputScreen> {
   String _severity = "Mild";
 
   Future<void> _saveSymptom() async {
-    if (_formKey.currentState!.validate()) {
-      await _firestore
-          .collection('users')
-          .doc(_user!.uid)
+    if (!_formKey.currentState!.validate()) return;
+
+    if (_user == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please sign in to save symptoms')),
+        );
+      }
+      return;
+    }
+
+    try {
+    await _firestore
+      .collection('users')
+      .doc(_user.uid)
           .collection('symptoms')
           .add({
             'symptom': _symptomController.text.trim(),
@@ -32,14 +43,21 @@ class _SymptomInputScreenState extends State<SymptomInputScreen> {
           });
 
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Symptom saved successfully!")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Symptom saved successfully!")),
+        );
       }
 
       _symptomController.clear();
       _descriptionController.clear();
-      setState(() => _severity = "Mild");
+      if (mounted) setState(() => _severity = "Mild");
+    } on FirebaseException catch (e) {
+      // Handle Firestore permission errors or other failures
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to save symptom: ${e.message}')),
+        );
+      }
     }
   }
 

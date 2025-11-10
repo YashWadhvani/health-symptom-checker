@@ -236,7 +236,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         'name': _nameController.text.trim(),
         'age': _ageController.text.trim(),
         'medicalHistory': _medicalHistoryController.text.trim(),
-      });
+      }, SetOptions(merge: true));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -273,25 +273,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
+                  color: color.withAlpha((0.1 * 255).round()),
                   shape: BoxShape.circle,
                 ),
-                child: Icon(icon, color: color, size: 28),
+                child: Icon(icon, color: color, size: 24),
               ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 8),
+              Flexible(
+                child: Text(
+                  title,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ],
@@ -313,234 +317,228 @@ class _ProfileScreenState extends State<ProfileScreen> {
         backgroundColor: colorScheme.primary,
         foregroundColor: Colors.white,
       ),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            // Header Section
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(bottom: 24),
-              decoration: BoxDecoration(
-                color: colorScheme.primary,
-                borderRadius: const BorderRadius.only(
-                  bottomLeft: Radius.circular(32),
-                  bottomRight: Radius.circular(32),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.only(bottom: 24),
+          child: Column(
+            children: [
+              // Header Section
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.only(bottom: 24),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary,
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(32),
+                    bottomRight: Radius.circular(32),
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  const SizedBox(height: 8),
-                  CircleAvatar(
-                    radius: 50,
-                    backgroundColor: Colors.white,
-                    child: Icon(
-                      Icons.person,
-                      size: 50,
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    _nameController.text.isEmpty
-                        ? 'Welcome!'
-                        : _nameController.text,
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _user.email ?? '',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.white.withValues(alpha: 0.9),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // Profile Form Section
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: Form(
-                key: _formKey,
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Personal Information',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
+                    const SizedBox(height: 8),
+                    CircleAvatar(
+                      radius: 50,
+                      backgroundColor: Colors.white,
+                      child: Icon(
+                        Icons.person,
+                        size: 50,
+                        color: colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    Card(
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                        side: BorderSide(color: Colors.grey[300]!),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Column(
-                          children: [
-                            TextFormField(
-                              controller: _nameController,
-                              decoration: InputDecoration(
-                                labelText: 'Full Name',
-                                prefixIcon: const Icon(Icons.person_outline),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your name';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _ageController,
-                              decoration: InputDecoration(
-                                labelText: 'Age',
-                                prefixIcon: const Icon(Icons.cake_outlined),
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                              ),
-                              keyboardType: TextInputType.number,
-                              validator: (value) {
-                                if (value == null || value.trim().isEmpty) {
-                                  return 'Please enter your age';
-                                }
-                                if (int.tryParse(value) == null) {
-                                  return 'Please enter a valid age';
-                                }
-                                return null;
-                              },
-                            ),
-                            const SizedBox(height: 16),
-                            TextFormField(
-                              controller: _medicalHistoryController,
-                              decoration: InputDecoration(
-                                labelText: 'Medical History (Optional)',
-                                prefixIcon: const Icon(
-                                  Icons.medical_services_outlined,
-                                ),
-                                alignLabelWithHint: true,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: Colors.grey[50],
-                                hintText:
-                                    'e.g., allergies, chronic conditions...',
-                              ),
-                              maxLines: 4,
-                            ),
-                          ],
+                    const SizedBox(height: 12),
+                    Builder(builder: (ctx) {
+                      final displayLabel = _nameController.text.trim().isNotEmpty
+                          ? _nameController.text.trim()
+                          : (_user.email ?? 'User');
+                      return Text(
+                        'Welcome, $displayLabel',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 50,
-                      child: ElevatedButton(
-                        onPressed: _isLoading ? null : _saveProfile,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: colorScheme.primary,
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                        ),
-                        child: _isLoading
-                            ? const SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Save Profile',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-                    const Text(
-                      'Quick Actions',
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    GridView.count(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisCount: 2,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: 1.1,
-                      children: [
-                        _buildQuickActionCard(
-                          title: 'Add Symptoms',
-                          icon: Icons.add_circle_outline,
-                          onTap: () => Navigator.pushNamed(context, '/symptom'),
-                          color: Colors.blue,
-                        ),
-                        _buildQuickActionCard(
-                          title: 'Search Symptoms',
-                          icon: Icons.search,
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    const SymptomSearchScreen(),
-                              ),
-                            );
-                          },
-                          color: Colors.purple,
-                        ),
-                        _buildQuickActionCard(
-                          title: 'Symptom History',
-                          icon: Icons.history,
-                          onTap: () => Navigator.pushNamed(context, '/history'),
-                          color: Colors.orange,
-                        ),
-                        _buildQuickActionCard(
-                          title: 'AI Analysis',
-                          icon: Icons.psychology_outlined,
-                          onTap: () => Navigator.pushNamed(context, '/ai'),
-                          color: Colors.teal,
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
+                        overflow: TextOverflow.ellipsis,
+                      );
+                    }),
                   ],
                 ),
               ),
-            ),
-          ],
+
+              // Profile Form Section
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Personal Information',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      Card(
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                          side: BorderSide(color: Colors.grey[300]!),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            children: [
+                              TextFormField(
+                                controller: _nameController,
+                                decoration: InputDecoration(
+                                  labelText: 'Full Name',
+                                  prefixIcon: const Icon(Icons.person_outline),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                ),
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter your name';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _ageController,
+                                decoration: InputDecoration(
+                                  labelText: 'Age',
+                                  prefixIcon: const Icon(Icons.cake_outlined),
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                ),
+                                keyboardType: TextInputType.number,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return 'Please enter your age';
+                                  }
+                                  if (int.tryParse(value) == null) {
+                                    return 'Please enter a valid age';
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 16),
+                              TextFormField(
+                                controller: _medicalHistoryController,
+                                decoration: InputDecoration(
+                                  labelText: 'Medical History (Optional)',
+                                  prefixIcon: const Icon(
+                                    Icons.medical_services_outlined,
+                                  ),
+                                  alignLabelWithHint: true,
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[50],
+                                  hintText:
+                                      'e.g., allergies, chronic conditions...',
+                                ),
+                                maxLines: 4,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        height: 50,
+                        child: ElevatedButton(
+                          onPressed: _isLoading ? null : _saveProfile,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: colorScheme.primary,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                          ),
+                          child: _isLoading
+                              ? const SizedBox(
+                                  height: 24,
+                                  width: 24,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Text(
+                                  'Save Profile',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+                      GridView.count(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        crossAxisCount: 2,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        // use square-ish cards for quick actions
+                        childAspectRatio: 1.0,
+                        children: [
+                          _buildQuickActionCard(
+                            title: 'Add Symptoms',
+                            icon: Icons.add_circle_outline,
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/symptom'),
+                            color: Colors.blue,
+                          ),
+                          _buildQuickActionCard(
+                            title: 'Search Symptoms',
+                            icon: Icons.search,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const SymptomSearchScreen(),
+                                ),
+                              );
+                            },
+                            color: Colors.purple,
+                          ),
+                          _buildQuickActionCard(
+                            title: 'Symptom History',
+                            icon: Icons.history,
+                            onTap: () =>
+                                Navigator.pushNamed(context, '/history'),
+                            color: Colors.orange,
+                          ),
+                          _buildQuickActionCard(
+                            title: 'AI Analysis',
+                            icon: Icons.psychology_outlined,
+                            onTap: () => Navigator.pushNamed(context, '/ai'),
+                            color: Colors.teal,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 32),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

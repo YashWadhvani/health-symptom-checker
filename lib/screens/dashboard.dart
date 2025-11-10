@@ -14,11 +14,42 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _totalSymptoms = 0;
   int _highSeverityCount = 0;
   bool _isLoading = true;
+  String? _profileName;
 
   @override
   void initState() {
     super.initState();
-    _loadDashboardData();
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      _loadDashboardData();
+    } else {
+      // Wait for auth state to be available and then load dashboard
+      FirebaseAuth.instance.authStateChanges().firstWhere((u) => u != null).then((_) {
+        if (mounted) _loadDashboardData();
+        if (mounted) _loadProfileName();
+      }).catchError((_) {
+        // ignore errors and leave loading false
+        if (mounted) setState(() => _isLoading = false);
+      });
+    }
+  }
+
+  Future<void> _loadProfileName() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final name = doc.data()?['name'];
+        if (name is String && name.trim().isNotEmpty) {
+          if (mounted) setState(() => _profileName = name.trim());
+          return;
+        }
+      }
+      // fallback to null (will use email-based display)
+    } catch (_) {
+      // ignore
+    }
   }
 
   Future<void> _loadDashboardData() async {
@@ -83,15 +114,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final email = user?.email ?? 'User';
-    final displayName = email.split('@')[0]; // Get name before @
+    final displayName = _profileName ?? (email.split('@')[0]); // prefer profile name
 
     final features = [
       {
-        'title': 'AI Symptom Checker',
+        'title': 'AI Checker',
         'icon': Icons.medical_services_outlined,
         'color': Colors.teal,
         'route': '/ai',
-        'description': 'Analyze symptoms with AI',
+        'description': 'Analyze with AI',
       },
       {
         'title': 'Symptom History',
@@ -119,7 +150,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'icon': Icons.warning_amber_rounded,
         'color': Colors.redAccent,
         'route': '/emergency',
-        'description': 'Quick emergency access',
+        'description': 'Emergency access',
       },
       {
         'title': 'Privacy Policy',
@@ -149,155 +180,158 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onRefresh: _loadDashboardData,
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
-          child: Column(
-            children: [
-              // Header Section with gradient
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.teal,
-                  borderRadius: const BorderRadius.only(
-                    bottomLeft: Radius.circular(30),
-                    bottomRight: Radius.circular(30),
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 96),
+            child: Column(
+              children: [
+                // Header Section with gradient
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.teal,
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(30),
+                      bottomRight: Radius.circular(30),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            radius: 30,
+                            backgroundColor: Colors.white,
+                            child: Text(
+                              displayName[0].toUpperCase(),
+                              style: const TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.teal,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 15),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "Welcome back,",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: Colors.white.withAlpha((0.9 * 255).round()),
+                                  ),
+                                ),
+                                Text(
+                                  displayName,
+                                  style: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Text(
+                        "How are you feeling today?",
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        CircleAvatar(
-                          radius: 30,
-                          backgroundColor: Colors.white,
-                          child: Text(
-                            displayName[0].toUpperCase(),
-                            style: const TextStyle(
-                              fontSize: 24,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 15),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                "Welcome back,",
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.white.withOpacity(0.9),
-                                ),
-                              ),
-                              Text(
-                                displayName,
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.white,
-                                ),
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 20),
-                    const Text(
-                      "How are you feeling today?",
-                      style: TextStyle(
-                        fontSize: 16,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
 
-              // Stats Cards
-              Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      "Health Overview",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                // Stats Cards
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Health Overview",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
-                    _isLoading
-                        ? const Center(
-                            child: Padding(
-                              padding: EdgeInsets.all(20),
-                              child: CircularProgressIndicator(),
+                      const SizedBox(height: 12),
+                      _isLoading
+                          ? const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(20),
+                                child: CircularProgressIndicator(),
+                              ),
+                            )
+                          : Row(
+                              children: [
+                                Expanded(
+                                  child: _buildStatCard(
+                                    title: "Total Symptoms",
+                                    value: "$_totalSymptoms",
+                                    icon: Icons.healing,
+                                    color: Colors.blue,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: _buildStatCard(
+                                    title: "High Severity",
+                                    value: "$_highSeverityCount",
+                                    icon: Icons.warning_amber,
+                                    color: Colors.red,
+                                  ),
+                                ),
+                              ],
                             ),
-                          )
-                        : Row(
-                            children: [
-                              Expanded(
-                                child: _buildStatCard(
-                                  title: "Total Symptoms",
-                                  value: "$_totalSymptoms",
-                                  icon: Icons.healing,
-                                  color: Colors.blue,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: _buildStatCard(
-                                  title: "High Severity",
-                                  value: "$_highSeverityCount",
-                                  icon: Icons.warning_amber,
-                                  color: Colors.red,
-                                ),
-                              ),
-                            ],
-                          ),
-                    const SizedBox(height: 24),
-                    const Text(
-                      "Quick Actions",
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
+                      const SizedBox(height: 24),
+                      const Text(
+                        "Quick Actions",
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
+                      const SizedBox(height: 12),
 
-                    // Grid of Features
-                    GridView.builder(
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: features.length,
-                      gridDelegate:
-                          const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            mainAxisSpacing: 12,
-                            crossAxisSpacing: 12,
-                            childAspectRatio: 1.0,
-                          ),
-                      itemBuilder: (context, index) {
-                        final feature = features[index];
-                        return _buildFeatureCard(
-                          context: context,
-                          title: feature['title'] as String,
-                          description: feature['description'] as String,
-                          icon: feature['icon'] as IconData,
-                          color: feature['color'] as Color,
-                          route: feature['route'] as String,
-                        );
-                      },
-                    ),
-                  ],
+                      // Grid of Features
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: features.length,
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
+                              crossAxisCount: 2,
+                              mainAxisSpacing: 12,
+                              crossAxisSpacing: 12,
+                              childAspectRatio: 1.0,
+                            ),
+                        itemBuilder: (context, index) {
+                          final feature = features[index];
+                          return _buildFeatureCard(
+                            context: context,
+                            title: feature['title'] as String,
+                            description: feature['description'] as String,
+                            icon: feature['icon'] as IconData,
+                            color: feature['color'] as Color,
+                            route: feature['route'] as String,
+                          );
+                        },
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -324,7 +358,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
+            color: Colors.grey.withAlpha((0.1 * 255).round()),
             spreadRadius: 1,
             blurRadius: 4,
             offset: const Offset(0, 2),
@@ -337,7 +371,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
+              color: color.withAlpha((0.1 * 255).round()),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(icon, color: color, size: 24),
@@ -396,7 +430,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [color.withOpacity(0.1), color.withOpacity(0.05)],
+              colors: [color.withAlpha((0.1 * 255).round()), color.withAlpha((0.05 * 255).round())],
             ),
             borderRadius: BorderRadius.circular(16),
           ),
@@ -410,7 +444,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.3),
+                      color: color.withAlpha((0.3 * 255).round()),
                       spreadRadius: 2,
                       blurRadius: 8,
                     ),

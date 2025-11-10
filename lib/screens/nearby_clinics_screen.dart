@@ -15,9 +15,10 @@ class NearbyClinicsScreen extends StatefulWidget {
 
 class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
   bool _isLoading = true;
-  bool _hasPermission = false;
   Position? _currentPosition;
   List<Map<String, dynamic>> _clinics = [];
+  List<String> _categories = [];
+  String? _selectedCategory;
   String? _errorMessage;
   // For debugging: sample of clinic documents that lack valid coordinates
   List<Map<String, dynamic>> _missingCoords = [];
@@ -36,6 +37,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
 
   /// Initialize location services
   Future<void> _initializeLocation() async {
+    if (!mounted) return;
     setState(() {
       _isLoading = true;
       _errorMessage = null;
@@ -45,6 +47,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
       // Check if location services are enabled
       bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
+        if (!mounted) return;
         setState(() {
           _isLoading = false;
           _errorMessage =
@@ -57,12 +60,12 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
 
       // Check location permission
       LocationPermission permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
+          if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
         if (permission == LocationPermission.denied) {
+          if (!mounted) return;
           setState(() {
             _isLoading = false;
-            _hasPermission = false;
             _errorMessage =
                 'Location permission denied. Showing default location.';
           });
@@ -72,9 +75,9 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
       }
 
       if (permission == LocationPermission.deniedForever) {
+        if (!mounted) return;
         setState(() {
           _isLoading = false;
-          _hasPermission = false;
           _errorMessage =
               'Location permissions are permanently denied. Please enable in settings.';
         });
@@ -87,16 +90,16 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
         desiredAccuracy: LocationAccuracy.high,
       );
 
+      if (!mounted) return;
       setState(() {
         _currentPosition = position;
-        _hasPermission = true;
         _initialCenter = LatLng(position.latitude, position.longitude);
       });
 
       // Load clinics from Firestore
       await _loadClinicsFromFirestore();
 
-      // Center map on user location. The MapController's internal controller
+  // Center map on user location. The MapController's internal controller
       // is attached during the first frame when the map is built, so defer
       // moving the map until after the first frame to avoid a
       // LateInitializationError (internal controller not initialized).
@@ -105,14 +108,17 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
       // a few times with a short delay. This avoids a LateInitializationError
       // while still centering the map shortly after it is available.
       WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
         _mapMoveAttempts = 0;
         _tryMoveMap(_initialCenter, 13.0);
       });
     } catch (e) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error getting location: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error getting location: ${e.toString()}';
+        });
+      }
       await _loadClinicsFromFirestore();
     }
   }
@@ -181,7 +187,13 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
               : 0.0,
           'open': data['open'] ?? false,
           'phone': data['phone']?.toString() ?? '',
-          'type': data['type'] ?? 'Clinic',
+    'type': data['type'] ?? 'Clinic',
+    'category': data['category']?.toString(),
+    'types': (data['types'] as List?)?.map((e) => e.toString()).toList() ?? [],
+    'place_id': data['place_id']?.toString(),
+    'tagColor': data['tagColor']?.toString(),
+    'userRatingsTotal': (data['userRatingsTotal'] is num) ? (data['userRatingsTotal'] as num).toInt() : null,
+    'timestamp': data['timestamp'],
           'lat': lat, // nullable double
           'lng': lng, // nullable double
         });
@@ -202,7 +214,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
       }
 
       // Collect docs without coordinates for debugging/inspection.
-      final missing = loadedClinics
+    final missing = loadedClinics
           .where((c) => c['lat'] == null || c['lng'] == null)
           .map(
             (c) => {
@@ -214,6 +226,16 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
           )
           .toList();
 
+      // Build category/type filter lists (unique values) for UI
+      final cats = <String>{};
+      for (var c in loadedClinics) {
+        if (c['category'] != null) cats.add(c['category']);
+      }
+
+      setState(() {
+        _categories = cats.toList()..sort();
+      });
+
       // Print to console to help debug in developer mode.
       // ignore: avoid_print
       print(
@@ -223,6 +245,8 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
       debugPrint(
         'Processed clinics: ${loadedClinics.length} total, ${loadedClinics.where((c) => c['lat'] != null && c['lng'] != null).length} with valid coordinates',
       );
+      if (!mounted) return;
+      if (!mounted) return;
       setState(() {
         _clinics = loadedClinics;
         _missingCoords = missing;
@@ -231,10 +255,12 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
     } catch (e, stackTrace) {
       debugPrint('Error loading clinics: $e');
       debugPrint('Stack trace: $stackTrace');
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error loading clinics: ${e.toString()}';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error loading clinics: ${e.toString()}';
+        });
+      }
     }
   }
 
@@ -348,18 +374,42 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
     }
   }
 
-  /// Get color for clinic type
-  Color _getTypeColor(String type) {
-    switch (type.toLowerCase()) {
+  
+
+  /// Get color for clinic category (used for marker/icon coloring)
+  Color _getCategoryColor(String? category) {
+    if (category == null) return Colors.teal;
+    switch (category.toLowerCase()) {
+      case 'pharmacy':
+        return Colors.green;
       case 'hospital':
         return Colors.red;
-      case 'emergency':
-        return Colors.orange;
-      case 'diagnostic':
-        return Colors.purple;
+      case 'clinic':
+        return Colors.teal;
+      case 'doctor':
+      case 'doctors':
+        return Colors.indigo;
+      case 'medical store':
+      case 'medical_store':
+        return Colors.brown;
       default:
         return Colors.teal;
     }
+  }
+
+  /// Capitalize first letter of a string (safe for empty strings)
+  String _capitalize(String s) {
+    if (s.isEmpty) return s;
+    return s[0].toUpperCase() + s.substring(1);
+  }
+
+  /// Returns true if [clinic] matches the currently selected filters.
+  bool _matchesFilter(Map<String, dynamic> clinic) {
+    if (_selectedCategory != null) {
+      final String? cat = clinic['category']?.toString();
+      if (cat != _selectedCategory) return false;
+    }
+    return true;
   }
 
   /// Build marker for clinic
@@ -372,7 +422,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
         onTap: () => _showClinicDetails(clinic),
         child: Icon(
           _getTypeIcon(clinic['type']),
-          color: _getTypeColor(clinic['type']),
+          color: _getCategoryColor(clinic['category']?.toString() ?? clinic['type']),
           size: 40,
           shadows: const [Shadow(color: Colors.black26, blurRadius: 4)],
         ),
@@ -419,18 +469,18 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: _getTypeColor(clinic['type']).withOpacity(0.1),
+                        color: _getCategoryColor(clinic['category']?.toString() ?? clinic['type']).withAlpha((0.1 * 255).round()),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Icon(
                         _getTypeIcon(clinic['type']),
-                        color: _getTypeColor(clinic['type']),
+                        color: _getCategoryColor(clinic['category']?.toString() ?? clinic['type']),
                         size: 28,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Column(
+                          child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
@@ -486,8 +536,39 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                          const SizedBox(height: 16),
                 const Divider(),
+                const SizedBox(height: 12),
+
+                // Category & Types
+                if (clinic['category'] != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.category, size: 18, color: Colors.grey),
+                        const SizedBox(width: 8),
+                        Text(
+                          _capitalize(clinic['category'].toString()),
+                          style: TextStyle(color: Colors.grey[800]),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                if ((clinic['types'] as List?) != null && (clinic['types'] as List).isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    children: (clinic['types'] as List)
+                        .map<Widget>((t) => Chip(
+                                  label: Text(_capitalize(t.toString())),
+                              backgroundColor: Colors.grey[100],
+                              visualDensity: VisualDensity.compact,
+                            ))
+                        .toList(),
+                  ),
+
                 const SizedBox(height: 12),
 
                 // Address
@@ -670,9 +751,9 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                             ),
                             width: 60,
                             height: 60,
-                            child: Container(
+                              child: Container(
                               decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.3),
+                                color: Colors.blue.withAlpha((0.3 * 255).round()),
                                 shape: BoxShape.circle,
                               ),
                               child: const Center(
@@ -684,20 +765,57 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                               ),
                             ),
                           ),
-                        // Clinic markers: only create markers for clinics with
-                        // valid latitude/longitude values.
-                        ..._clinics
-                            .where(
-                              (clinic) =>
-                                  clinic['lat'] != null &&
-                                  clinic['lng'] != null,
-                            )
-                            .map((clinic) => _buildMarker(clinic))
-                            .toList(),
+            // Clinic markers: only create markers for clinics with
+            // valid latitude/longitude values and matching filters.
+            ..._clinics
+              .where(
+                (clinic) =>
+                  clinic['lat'] != null &&
+                  clinic['lng'] != null &&
+                  _matchesFilter(clinic),
+              )
+              .map((clinic) => _buildMarker(clinic)),
                       ],
                     ),
                   ],
                 ),
+
+                // Filter bar (category)
+                if (_categories.isNotEmpty)
+                  Positioned(
+                    top: 12,
+                    left: 12,
+                    right: 12,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          ChoiceChip(
+                            label: const Text('All'),
+                            selected: _selectedCategory == null,
+                            onSelected: (sel) {
+                              setState(() {
+                                _selectedCategory = null;
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 8),
+                          ..._categories.map((c) => Padding(
+                                padding: const EdgeInsets.only(right: 8.0),
+                                child: ChoiceChip(
+                                  label: Text(_capitalize(c)),
+                                  selected: _selectedCategory == c,
+                                  onSelected: (sel) {
+                                    setState(() {
+                                      _selectedCategory = sel ? c : null;
+                                    });
+                                  },
+                                ),
+                              )),
+                        ],
+                      ),
+                    ),
+                  ),
 
                 // Error/Info Banner
                 if (_errorMessage != null)
@@ -744,7 +862,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
+                          color: Colors.black.withAlpha((0.1 * 255).round()),
                           blurRadius: 8,
                           offset: const Offset(0, 2),
                         ),
@@ -762,7 +880,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                         Text(
                           // Show visible clinics (with coords) and total count to help
                           // debugging if some docs lack location fields.
-                          '${_clinics.where((c) => c['lat'] != null && c['lng'] != null).length}/${_clinics.length} clinics',
+                          '${_clinics.where((c) => c['lat'] != null && c['lng'] != null).length}/${_clinics.length} Medical Help Centers',
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.teal,
@@ -783,11 +901,11 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                         vertical: 8,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.9),
+                        color: Colors.red.withAlpha((0.9 * 255).round()),
                         borderRadius: BorderRadius.circular(12),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
+                            color: Colors.black.withAlpha((0.1 * 255).round()),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),

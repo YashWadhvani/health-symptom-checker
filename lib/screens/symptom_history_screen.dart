@@ -1,178 +1,6 @@
-// //
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
-// import 'package:flutter/material.dart';
-// import '../models/symptom_model.dart';
-
-// class SymptomHistoryScreen extends StatelessWidget {
-//   const SymptomHistoryScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final user = FirebaseAuth.instance.currentUser;
-//     final ref = FirebaseFirestore.instance
-//         .collection('users')
-//         .doc(user?.uid)
-//         .collection('symptoms')
-//         .orderBy('timestamp', descending: true);
-
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text("My Symptom History"),
-//         backgroundColor: Colors.teal,
-//       ),
-//       body: StreamBuilder<QuerySnapshot>(
-//         stream: ref.snapshots(),
-//         builder: (context, snapshot) {
-//           if (!snapshot.hasData) {
-//             return const Center(child: CircularProgressIndicator());
-//           }
-
-//           final data = snapshot.data!.docs;
-//           if (data.isEmpty) {
-//             return const Center(child: Text("No symptoms logged yet."));
-//           }
-
-//           return ListView.builder(
-//             itemCount: data.length,
-//             itemBuilder: (context, index) {
-//               final item = data[index].data() as Map<String, dynamic>;
-//               final symptom = Symptom.fromMap(item);
-//               return ListTile(
-//                 leading: Icon(
-//                   Icons.local_hospital,
-//                   color: symptom.severity == 'High'
-//                       ? Colors.red
-//                       : symptom.severity == 'Medium'
-//                       ? Colors.orange
-//                       : Colors.green,
-//                 ),
-//                 title: Text(symptom.name),
-//                 subtitle: Text(
-//                   "${symptom.description}\n${symptom.timestamp?.toLocal().toString().split('.')[0]}",
-//                 ),
-//               );
-//             },
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-
-// class SymptomHistoryScreen extends StatelessWidget {
-//   const SymptomHistoryScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final user = FirebaseAuth.instance.currentUser;
-//     if (user == null) {
-//       return const Scaffold(
-//         body: Center(
-//           child: Text("Please sign in to view your symptom history."),
-//         ),
-//       );
-//     }
-
-//     final ref = FirebaseFirestore.instance
-//         .collection('users')
-//         .doc(user.uid)
-//         .collection('symptoms')
-//         .orderBy('timestamp', descending: true);
-
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: const Text("My Symptom History"),
-//         backgroundColor: Colors.teal,
-//         foregroundColor: Colors.white,
-//         elevation: 2,
-//       ),
-//       body: StreamBuilder<QuerySnapshot>(
-//         stream: ref.snapshots(),
-//         builder: (context, snapshot) {
-//           if (snapshot.connectionState == ConnectionState.waiting) {
-//             return const Center(
-//               child: CircularProgressIndicator(color: Colors.teal),
-//             );
-//           }
-
-//           if (snapshot.hasError) {
-//             return Center(
-//               child: Text(
-//                 "Error fetching data: ${snapshot.error}",
-//                 style: const TextStyle(color: Colors.red),
-//               ),
-//             );
-//           }
-
-//           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-//             return const Center(
-//               child: Text(
-//                 "No symptoms logged yet.\nStart by using the AI Symptom Checker!",
-//                 textAlign: TextAlign.center,
-//                 style: TextStyle(fontSize: 16, color: Colors.black54),
-//               ),
-//             );
-//           }
-
-//           final data = snapshot.data!.docs;
-
-//           return ListView.separated(
-//             padding: const EdgeInsets.all(10),
-//             separatorBuilder: (_, __) => const Divider(),
-//             itemCount: data.length,
-//             itemBuilder: (context, index) {
-//               final item = data[index].data() as Map<String, dynamic>;
-//               final symptom = Symptom.fromMap(item);
-
-//               Color severityColor;
-//               switch (symptom.severity?.toLowerCase()) {
-//                 case 'high':
-//                   severityColor = Colors.redAccent;
-//                   break;
-//                 case 'medium':
-//                   severityColor = Colors.orangeAccent;
-//                   break;
-//                 default:
-//                   severityColor = Colors.green;
-//               }
-
-//               return Card(
-//                 shape: RoundedRectangleBorder(
-//                   borderRadius: BorderRadius.circular(10),
-//                 ),
-//                 elevation: 2,
-//                 child: ListTile(
-//                   leading: CircleAvatar(
-//                     backgroundColor: severityColor.withOpacity(0.15),
-//                     child: Icon(Icons.local_hospital, color: severityColor),
-//                   ),
-//                   title: Text(
-//                     symptom.name,
-//                     style: const TextStyle(fontWeight: FontWeight.w600),
-//                   ),
-//                   subtitle: Text(
-//                     "${symptom.description}\n"
-//                     "${symptom.timestamp != null ? symptom.timestamp!.toLocal().toString().split('.')[0] : ''}",
-//                   ),
-//                   isThreeLine: true,
-//                 ),
-//               );
-//             },
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
-
-// import 'package:flutter/material.dart';
-// import 'package:cloud_firestore/cloud_firestore.dart';
-// import 'package:firebase_auth/firebase_auth.dart';
 
 class SymptomHistoryScreen extends StatefulWidget {
   const SymptomHistoryScreen({super.key});
@@ -182,13 +10,12 @@ class SymptomHistoryScreen extends StatefulWidget {
 }
 
 class _SymptomHistoryScreenState extends State<SymptomHistoryScreen> {
-  final _user = FirebaseAuth.instance.currentUser!;
   String _sortBy = 'Date (Recent First)';
 
-  Stream<QuerySnapshot> _getSymptomsStream() {
+  Stream<QuerySnapshot> _getSymptomsStream(String uid) {
     Query query = FirebaseFirestore.instance
         .collection('users')
-        .doc(_user.uid)
+        .doc(uid)
         .collection('symptoms');
 
     if (_sortBy == 'Severity') {
@@ -200,9 +27,11 @@ class _SymptomHistoryScreenState extends State<SymptomHistoryScreen> {
   }
 
   Future<void> _deleteSymptom(String docId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
     await FirebaseFirestore.instance
         .collection('users')
-        .doc(_user.uid)
+        .doc(user.uid)
         .collection('symptoms')
         .doc(docId)
         .delete();
@@ -210,9 +39,10 @@ class _SymptomHistoryScreenState extends State<SymptomHistoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final user = FirebaseAuth.instance.currentUser;
     return Scaffold(
       appBar: AppBar(
-        title: Text('Symptom History'),
+        title: const Text('Symptom History'),
         actions: [
           DropdownButton<String>(
             value: _sortBy,
@@ -224,51 +54,114 @@ class _SymptomHistoryScreenState extends State<SymptomHistoryScreen> {
           ),
         ],
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _getSymptomsStream(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
+      body: user == null
+          ? const Center(child: Text('Please sign in to view your symptom history.'))
+          : StreamBuilder<QuerySnapshot>(
+              stream: _getSymptomsStream(user.uid),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return Center(child: Text("No symptoms logged yet!"));
-          }
-
-          final symptoms = snapshot.data!.docs;
-
-          return ListView.builder(
-            itemCount: symptoms.length,
-            itemBuilder: (context, index) {
-              final data = symptoms[index].data() as Map<String, dynamic>;
-              return Card(
-                margin: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                elevation: 3,
-                child: ListTile(
-                  title: Text(data['symptom'] ?? ''),
-                  subtitle: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text("Severity: ${data['severity']}"),
-                      Text(
-                        "Date: ${DateTime.parse(data['date'].toDate().toString()).toLocal()}",
-                        style: TextStyle(fontSize: 12),
+                if (snapshot.hasError) {
+                  final err = snapshot.error;
+                  // Friendly handling for permission issues
+                  if (err is FirebaseException && err.code == 'permission-denied') {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Permission denied',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 8),
+                            const Text(
+                              'You do not have permission to read symptom history. Please ensure you are signed in with the correct account and that Firestore security rules allow access.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () => Navigator.pushNamed(context, '/profile'),
+                              child: const Text('Open Profile / Sign in'),
+                            ),
+                          ],
+                        ),
                       ),
-                    ],
-                  ),
-                  trailing: IconButton(
-                    icon: Icon(Icons.delete, color: Colors.red),
-                    onPressed: () => _deleteSymptom(symptoms[index].id),
-                  ),
-                ),
-              );
-            },
-          );
-        },
-      ),
+                    );
+                  }
+
+                  return Center(child: Text('Error: ${snapshot.error}'));
+                }
+
+                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                  return const Center(child: Text('No symptoms logged yet!'));
+                }
+
+                final symptoms = snapshot.data!.docs;
+
+                return ListView.separated(
+                  padding: const EdgeInsets.all(10),
+                  separatorBuilder: (_, __) => const Divider(),
+                  itemCount: symptoms.length,
+                  itemBuilder: (context, index) {
+                    final data = symptoms[index].data() as Map<String, dynamic>;
+
+                    // parse date safely
+                    DateTime parsedDate;
+                    final rawDate = data['date'];
+                    if (rawDate is Timestamp) {
+                      parsedDate = rawDate.toDate();
+                    } else if (rawDate is String) {
+                      parsedDate = DateTime.tryParse(rawDate) ?? DateTime.now();
+                    } else if (rawDate is DateTime) {
+                      parsedDate = rawDate;
+                    } else {
+                      parsedDate = DateTime.now();
+                    }
+
+                    final severity = (data['severity'] ?? '').toString();
+
+                    Color severityColor;
+                    switch (severity.toLowerCase()) {
+                      case 'high':
+                      case 'severe':
+                        severityColor = Colors.redAccent;
+                        break;
+                      case 'moderate':
+                        severityColor = Colors.orangeAccent;
+                        break;
+                      default:
+                        severityColor = Colors.green;
+                    }
+
+                    return Card(
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      elevation: 2,
+                      child: ListTile(
+                        leading: CircleAvatar(
+                          backgroundColor: severityColor.withAlpha((0.15 * 255).round()),
+                          child: Icon(Icons.local_hospital, color: severityColor),
+                        ),
+                        title: Text(data['symptom'] ?? ''),
+                        subtitle: Text(
+                          '${data['description'] ?? ''}\n${parsedDate.toLocal().toString()}',
+                        ),
+                        isThreeLine: true,
+                        trailing: IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _deleteSymptom(symptoms[index].id),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
     );
   }
 }

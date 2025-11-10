@@ -21,15 +21,8 @@
 //   }
 // }
 
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-
 /// Service for fetching health and disease information from external APIs
 class HealthApiService {
-  // Base URLs for health APIs
-  static const String _diseaseApiBase = 'https://disease.sh/v3/covid-19';
-  static const String _healthApiBase =
-      'https://health.gov/myhealthfinder/api/v3';
 
   /// Fetch possible diseases based on symptom
   /// This is a mock implementation - replace with actual medical API

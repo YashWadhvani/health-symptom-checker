@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/ai_symptom_analysis_screen.dart';
 import 'screens/dashboard.dart';
-import 'screens/health_report_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/nearby_clinics_screen.dart';
 import 'screens/privacy_policy_screen.dart';
