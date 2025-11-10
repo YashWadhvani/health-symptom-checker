@@ -19,9 +19,14 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
   Position? _currentPosition;
   List<Map<String, dynamic>> _clinics = [];
   String? _errorMessage;
+  // For debugging: sample of clinic documents that lack valid coordinates
+  List<Map<String, dynamic>> _missingCoords = [];
 
   final MapController _mapController = MapController();
   LatLng _initialCenter = const LatLng(23.0225, 72.5714); // Default Ahmedabad
+  // Internal retry counter for map move attempts when the map's internal
+  // controller (_internalController) hasn't been attached yet.
+  int _mapMoveAttempts = 0;
 
   @override
   void initState() {
@@ -91,8 +96,18 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
       // Load clinics from Firestore
       await _loadClinicsFromFirestore();
 
-      // Center map on user location
-      _mapController.move(_initialCenter, 13.0);
+      // Center map on user location. The MapController's internal controller
+      // is attached during the first frame when the map is built, so defer
+      // moving the map until after the first frame to avoid a
+      // LateInitializationError (internal controller not initialized).
+      // Defer moving the map until after the first frame. If the map's
+      // internal controller (`_internalController`) isn't ready yet we retry
+      // a few times with a short delay. This avoids a LateInitializationError
+      // while still centering the map shortly after it is available.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _mapMoveAttempts = 0;
+        _tryMoveMap(_initialCenter, 13.0);
+      });
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -113,48 +128,97 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
 
       for (var doc in snapshot.docs) {
         final data = doc.data() as Map<String, dynamic>;
+        // Helper to parse coordinate values which may be stored as
+        // number (int/double) or string in Firestore
+        double? parseDouble(dynamic v) {
+          if (v == null) return null;
+          if (v is num) return v.toDouble();
+          if (v is String) return double.tryParse(v);
+          return null;
+        }
 
-        // Calculate distance if user location is available
-        String distance = 'N/A';
-        if (_currentPosition != null &&
-            data['latitude'] != null &&
-            data['longitude'] != null) {
-          double distanceInMeters = Geolocator.distanceBetween(
+        // Try both lat/lng and latitude/longitude field names
+        final double? lat =
+            parseDouble(data['lat']) ?? parseDouble(data['latitude']);
+        final double? lng =
+            parseDouble(data['lng']) ?? parseDouble(data['longitude']);
+
+        // Debug: print coordinate values to help diagnose parsing issues
+        // ignore: avoid_print
+        print(
+          'Doc ${doc.id}: lat=$lat (${data['lat'] ?? data['latitude']}), lng=$lng (${data['lng'] ?? data['longitude']})',
+        );
+
+        // Calculate numeric distance (meters) if we have both user and clinic
+        // locations. We store both numeric distance for sorting and a
+        // human-friendly string for display.
+        double? distanceMeters;
+        String distanceStr = 'N/A';
+        if (_currentPosition != null && lat != null && lng != null) {
+          distanceMeters = Geolocator.distanceBetween(
             _currentPosition!.latitude,
             _currentPosition!.longitude,
-            data['latitude'],
-            data['longitude'],
+            lat,
+            lng,
           );
-          distance = distanceInMeters < 1000
-              ? '${distanceInMeters.round()} m'
-              : '${(distanceInMeters / 1000).toStringAsFixed(1)} km';
+          distanceStr = distanceMeters < 1000
+              ? '${distanceMeters.round()} m'
+              : '${(distanceMeters / 1000).toStringAsFixed(1)} km';
         }
 
         loadedClinics.add({
           'id': doc.id,
           'name': data['name'] ?? 'Unknown Clinic',
           'address': data['address'] ?? 'No address',
-          'distance': distance,
-          'rating': data['rating']?.toDouble() ?? 0.0,
+          'distanceMeters': distanceMeters, // nullable
+          'distanceStr': distanceStr,
+          'rating': (data['rating'] is num)
+              ? (data['rating'] as num).toDouble()
+              : 0.0,
           'open': data['open'] ?? false,
           'phone': data['phone'] ?? '',
           'type': data['type'] ?? 'Clinic',
-          'lat': data['latitude']?.toDouble() ?? 0.0,
-          'lng': data['longitude']?.toDouble() ?? 0.0,
+          'lat': lat, // nullable double
+          'lng': lng, // nullable double
         });
       }
 
-      // Sort by distance if available
+      // Sort clinics: if we have numeric distances, sort by them; otherwise
+      // keep Firestore ordering. Clinics without distance (no lat/lng or user
+      // location unavailable) are placed at the end.
       if (_currentPosition != null) {
         loadedClinics.sort((a, b) {
-          if (a['distance'] == 'N/A') return 1;
-          if (b['distance'] == 'N/A') return -1;
-          return a['distance'].compareTo(b['distance']);
+          final double? da = a['distanceMeters'] as double?;
+          final double? db = b['distanceMeters'] as double?;
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return da.compareTo(db);
         });
       }
+
+      // Collect docs without coordinates for debugging/inspection.
+      final missing = loadedClinics
+          .where((c) => c['lat'] == null || c['lng'] == null)
+          .map(
+            (c) => {
+              'id': c['id'],
+              'name': c['name'],
+              'lat': c['lat'],
+              'lng': c['lng'],
+            },
+          )
+          .toList();
+
+      // Print to console to help debug in developer mode.
+      // ignore: avoid_print
+      print(
+        'Clinics loaded: ${loadedClinics.length}, missing coords: ${missing.length}',
+      );
 
       setState(() {
         _clinics = loadedClinics;
+        _missingCoords = missing;
         _isLoading = false;
       });
     } catch (e) {
@@ -165,16 +229,61 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
     }
   }
 
+  /// Try to move the map controller to [center] at [zoom]. If the
+  /// flutter_map internal controller (`_internalController`) isn't yet
+  /// initialized this will catch the error and retry up to [maxAttempts]
+  /// times with a short delay between attempts.
+  Future<void> _tryMoveMap(
+    LatLng center,
+    double zoom, {
+    int maxAttempts = 5,
+  }) async {
+    while (_mapMoveAttempts < maxAttempts) {
+      try {
+        if (!mounted) return;
+        _mapController.move(center, zoom);
+        return; // success
+      } catch (e) {
+        // The internal controller is not ready yet; wait and retry.
+        _mapMoveAttempts++;
+        await Future.delayed(const Duration(milliseconds: 150));
+      }
+    }
+    // If we reach here, moving the map failed several times. It's safe to
+    // ignore; FlutterMap will still use `initialCenter` when it renders.
+    // Optionally log in debug mode:
+    // debugPrint('Unable to move map after $_mapMoveAttempts attempts.');
+  }
+
   /// Open phone dialer
   Future<void> _makePhoneCall(String phone) async {
-    if (phone.isEmpty) return;
-    final Uri launchUri = Uri(scheme: 'tel', path: phone);
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    } else {
+    if (phone.isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not open phone dialer')),
+          const SnackBar(content: Text('Phone number not available')),
+        );
+      }
+      return;
+    }
+
+    // Clean the phone number to ensure proper format
+    String cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+    final Uri launchUri = Uri(scheme: 'tel', path: cleanPhone);
+
+    try {
+      if (await canLaunchUrl(launchUri)) {
+        await launchUrl(launchUri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not open phone dialer')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Error launching phone dialer')),
         );
       }
     }
@@ -182,16 +291,30 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
 
   /// Open maps with directions
   Future<void> _openMaps(double lat, double lng, String name) async {
-    final Uri launchUri = Uri.parse(
-      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    // Try opening in Google Maps app with navigation
+    final Uri googleMapsAppUri = Uri.parse('google.navigation:q=$lat,$lng');
+
+    try {
+      if (await canLaunchUrl(googleMapsAppUri)) {
+        await launchUrl(googleMapsAppUri);
+        return;
+      }
+    } catch (e) {
+      // If Google Maps app URI fails, fall back to web URL
+    }
+
+    // Fallback to Google Maps website
+    final Uri webUri = Uri.parse(
+      'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng&travelmode=driving',
     );
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri, mode: LaunchMode.externalApplication);
-    } else {
+
+    try {
+      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+    } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Could not open maps')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not open Google Maps')),
+        );
       }
     }
   }
@@ -227,7 +350,7 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
   /// Build marker for clinic
   Marker _buildMarker(Map<String, dynamic> clinic) {
     return Marker(
-      point: LatLng(clinic['lat'], clinic['lng']),
+      point: LatLng(clinic['lat'] as double, clinic['lng'] as double),
       width: 40,
       height: 40,
       child: GestureDetector(
@@ -382,7 +505,8 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      clinic['distance'],
+                      // Use the human-friendly distance string we stored.
+                      clinic['distanceStr'] ?? 'N/A',
                       style: TextStyle(
                         color: Colors.grey[700],
                         fontWeight: FontWeight.w500,
@@ -410,11 +534,23 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton.icon(
-                        onPressed: () => _openMaps(
-                          clinic['lat'],
-                          clinic['lng'],
-                          clinic['name'],
-                        ),
+                        onPressed: () {
+                          final lat = clinic['lat'] as double?;
+                          final lng = clinic['lng'] as double?;
+                          if (lat != null && lng != null) {
+                            _openMaps(lat, lng, clinic['name']);
+                          } else {
+                            if (mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Location not available for this clinic',
+                                  ),
+                                ),
+                              );
+                            }
+                          }
+                        },
                         icon: const Icon(Icons.directions, size: 18),
                         label: const Text('Directions'),
                         style: ElevatedButton.styleFrom(
@@ -488,10 +624,25 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     maxZoom: 18.0,
                   ),
                   children: [
+                    // NOTE: Using the public OpenStreetMap tile servers
+                    // (tile.openstreetmap.org) from a mobile app may trigger
+                    // "access blocked" responses because those servers are
+                    // volunteer-run and have strict usage policies. For
+                    // production apps you must use a proper tile provider
+                    // (Mapbox/MapTiler/OpenMapTiles/your own server) and supply
+                    // an API key or contact info in the User-Agent.
+                    //
+                    // Replace `YOUR_MAPTILER_KEY` with your MapTiler (or other)
+                    // API key. If you prefer another provider, update the
+                    // urlTemplate accordingly.
                     TileLayer(
                       urlTemplate:
                           'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.app',
+                      // Set a proper package name or contact string here. For
+                      // OpenStreetMap tile usage policy it's recommended to
+                      // include contact info in the User-Agent (e.g.
+                      // "com.mycompany.myapp (myemail@example.com)").
+                      userAgentPackageName: 'com.healthsymptomchecker.app',
                     ),
                     MarkerLayer(
                       markers: [
@@ -518,8 +669,16 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                               ),
                             ),
                           ),
-                        // Clinic markers
-                        ..._clinics.map((clinic) => _buildMarker(clinic)),
+                        // Clinic markers: only create markers for clinics with
+                        // valid latitude/longitude values.
+                        ..._clinics
+                            .where(
+                              (clinic) =>
+                                  clinic['lat'] != null &&
+                                  clinic['lng'] != null,
+                            )
+                            .map((clinic) => _buildMarker(clinic))
+                            .toList(),
                       ],
                     ),
                   ],
@@ -586,7 +745,9 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          '${_clinics.length} clinics',
+                          // Show visible clinics (with coords) and total count to help
+                          // debugging if some docs lack location fields.
+                          '${_clinics.where((c) => c['lat'] != null && c['lng'] != null).length}/${_clinics.length} clinics',
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             color: Colors.teal,
@@ -596,6 +757,54 @@ class _NearbyClinicsScreenState extends State<NearbyClinicsScreen> {
                     ),
                   ),
                 ),
+                // Debug: show clinics missing coordinates (visible when present)
+                if (_missingCoords.isNotEmpty)
+                  Positioned(
+                    bottom: 16,
+                    right: 16,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.9),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${_missingCoords.length} docs missing coords',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          // Show up to 3 sample doc ids/names
+                          ..._missingCoords
+                              .take(3)
+                              .map(
+                                (c) => Text(
+                                  '${c['id']}: ${c['name']}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
+                  ),
               ],
             ),
     );
